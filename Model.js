@@ -93,8 +93,8 @@ function hex2(n) {
   return (n < 16 ? "0" : "") + n.toString(16)
 }
 
-// Colour follows listening headroom: green at a whisper, yellow at half,
-// dark red at concert-hall. Same endpoints as RAM Pulse, CPU Pulse and Net Pulse.
+// Same Pulse endpoints: dark red → yellow → green. Audio maps loudness
+// onto that ramp, so 100% volume is green (alive), not red (danger).
 // Returns a #rrggbb string so this file does not depend on Qt.rgba.
 function ramp(percent) {
   var f = clamp(percent, 0, 100) / 100
@@ -104,9 +104,9 @@ function ramp(percent) {
   return "#" + hex2(a[0]+(b[0]-a[0])*t) + hex2(a[1]+(b[1]-a[1])*t) + hex2(a[2]+(b[2]-a[2])*t)
 }
 
-function headroom(volume, muted) {
+function loudness(volume, muted) {
   if (muted) return 0
-  return clamp((1 - clamp(volume, 0, 1)) * 100, 0, 100)
+  return clamp(clamp(volume, 0, 1) * 100, 0, 100)
 }
 
 function volumeReadout(volume) {
@@ -305,7 +305,7 @@ if (typeof module !== "undefined") {
     clamp: clamp,
     hex2: hex2,
     ramp: ramp,
-    headroom: headroom,
+    loudness: loudness,
     volumeReadout: volumeReadout,
     barTag: barTag,
     deviceBlob: deviceBlob,

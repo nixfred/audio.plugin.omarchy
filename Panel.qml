@@ -183,7 +183,7 @@ Panel {
     if (!isFinite(peak) || peak < 0) peak = 0
     return Math.max(outputVolume, Math.min(1, peak))
   }
-  readonly property color tint: (!hasOutput || outputMuted) ? "#71838c" : Model.ramp(Model.headroom(outputVolume))
+  readonly property color tint: (!hasOutput || outputMuted) ? "#71838c" : Model.ramp(Model.loudness(outputVolume))
   readonly property string health: !hasOutput ? "NO OUTPUT" : outputMuted ? "MUTED" : outputVolumeName(outputVolume, false).toUpperCase()
   readonly property real openPanelIndicatorWidth: button.width - 12
 

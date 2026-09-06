@@ -1,22 +1,22 @@
 import QtQuick
 import "Model.js" as Model
 
-// A glowing audio die. The body fills like RAM Pulse, spectrum bars carry
-// the live level, and the inner mark switches for speakers, headphones, HDMI
-// or a wireless sink. Aura, orbit rings and pins match CPU Pulse and Net Pulse
-// so the chips read as siblings on the bar.
+// A speaker, not a processor die. Magnet and cone on the left, sound arcs
+// and a live waveform on the right. Headphones, HDMI and Bluetooth swap the
+// mark; mute slashes it. Colour still uses the Pulse ramp, but loudness
+// (not headroom) drives it from the panel.
 Item {
     id: root
     property string kind: 'speaker'   // 'speaker' | 'headphones' | 'hdmi' | 'bluetooth' | 'none'
     property real level: 0            // 0–1 output volume
-    property real activity: 0         // 0–1 peak or traffic, drives bar motion
+    property real activity: 0         // 0–1 peak, drives waveform motion
     property bool muted: false
     property bool animate: true
     property bool compact: false
     property color tint: "#43f2a1"
     property real phase: 0
     property real shownLevel: level
-    implicitWidth: compact ? 28 : 160
+    implicitWidth: compact ? 34 : 160
     implicitHeight: compact ? 25 : 160
     Behavior on shownLevel { NumberAnimation { duration: 1200; easing.type: Easing.InOutCubic } }
     Behavior on tint { ColorAnimation { duration: 1100 } }
@@ -36,93 +36,98 @@ Item {
         onPaint: {
             var c = getContext('2d'), w = width, h = height
             c.reset(); c.clearRect(0,0,w,h)
-            var cx=w/2, cy=h/2, size=Math.min(w,h), body=size*(root.compact?0.58:0.47)
-            if (size <= 0 || body <= 0) return
-            var x=cx-body/2, y=cy-body/2, t=root.phase*Math.PI*2
+            if (w <= 0 || h <= 0) return
+            var cx=w/2, cy=h/2, size=Math.min(w,h)
+            var t=root.phase*Math.PI*2
             var lvl=Model.clamp(root.shownLevel,0,1)
             var act=Model.clamp(root.muted ? 0 : root.activity,0,1)
             var live=root.muted ? 0 : lvl
-            var aura=c.createRadialGradient(cx,cy,body*0.1,cx,cy,size*0.5)
-            aura.addColorStop(0,Qt.alpha(root.tint,0.30+0.25*live)); aura.addColorStop(0.6,Qt.alpha(root.tint,0.20+0.07*Math.sin(t))); aura.addColorStop(1,'transparent')
+            var aura=c.createRadialGradient(cx,cy,size*0.08,cx,cy,size*0.55)
+            aura.addColorStop(0,Qt.alpha(root.tint,0.38+0.28*live)); aura.addColorStop(0.62,Qt.alpha(root.tint,0.16+0.08*Math.sin(t))); aura.addColorStop(1,'transparent')
             c.fillStyle=aura; c.fillRect(0,0,w,h)
             if (!root.compact) {
                 for(var ring=0;ring<3;ring++) {
-                    c.beginPath(); c.strokeStyle=Qt.alpha(root.tint,0.11+ring*0.04); c.lineWidth=1
-                    c.arc(cx,cy,body*(0.78+ring*0.12),0,Math.PI*2); c.stroke()
-                    c.beginPath(); c.strokeStyle=Qt.alpha(root.tint,0.65); c.lineWidth=2
-                    var ang=t*(1+act*2)*(ring%2===0?1:-1)+ring*2
-                    c.arc(cx,cy,body*(0.78+ring*0.12),ang,ang+0.42);c.stroke()
+                    var rad=size*(0.34+ring*0.10)
+                    c.beginPath(); c.strokeStyle=Qt.alpha(root.tint,0.10+ring*0.04); c.lineWidth=1
+                    c.arc(cx,cy,rad,0,Math.PI*2); c.stroke()
+                    c.beginPath(); c.strokeStyle=Qt.alpha(root.tint,0.55+0.2*live); c.lineWidth=2; c.lineCap='round'
+                    var ang=t*(1+act*2)*(ring%2===0?1:-1)+ring*1.7
+                    c.arc(cx,cy,rad,ang,ang+0.55);c.stroke()
                 }
             }
-            c.fillStyle='#0b141b'; c.strokeStyle=root.tint; c.lineWidth=root.compact?1.2:2
-            c.fillRect(x,y,body,body)
-            c.shadowColor=root.tint; c.shadowBlur=root.compact?5:12
-            c.strokeRect(x,y,body,body); c.shadowBlur=0
-            c.save();c.beginPath();c.rect(x+2,y+2,body-4,body-4);c.clip()
-            c.strokeStyle=Qt.alpha(root.tint,0.18);c.lineWidth=0.8
-            for(var row=1;row<4;row++){ c.beginPath();c.moveTo(x,y+body*row/4);c.lineTo(x+body,y+body*row/4);c.stroke() }
-            var fillY=y+body*(1-live)
-            var liquid=c.createLinearGradient(0,y,0,y+body)
-            liquid.addColorStop(0,Qt.alpha(root.tint,0.65)); liquid.addColorStop(1,Qt.alpha(root.tint,0.16))
-            c.beginPath();c.moveTo(x,y+body);c.lineTo(x,fillY)
-            for(var px=0;px<=body;px+=2) c.lineTo(x+px,fillY+Math.sin(px/body*Math.PI*3+t)*(root.compact?1:3)*(0.4+0.6*act))
-            c.lineTo(x+body,y+body);c.closePath();c.fillStyle=liquid;c.fill()
-            var bars=root.compact?5:9, barW=body/(bars*2.4), base=y+body*0.92
-            for(var i=0;i<bars;i++){
-                var envelope=Math.sin(Math.PI*(i+1)/(bars+1))
-                var wobble=root.animate?0.62+0.38*Math.abs(Math.sin(t*(1.4+act)+i*0.9)):1
-                var bh=body*(root.compact?0.55:0.42)*live*envelope*wobble*(0.55+0.45*act)
-                var bx=x+body*(i+0.5)/bars
-                c.fillStyle=Qt.alpha(root.tint,0.35+0.55*live)
-                c.fillRect(bx-barW/2,base-bh,barW,Math.max(root.compact?1:2,bh))
-            }
-            c.strokeStyle=root.tint;c.fillStyle=root.tint;c.lineWidth=root.compact?1.1:2
+            var s=size*(root.compact?0.92:0.62)
             if (root.kind === 'headphones') {
-                c.beginPath();c.arc(cx,cy-body*0.04,body*0.22,Math.PI*1.12,Math.PI*1.88);c.stroke()
-                var cupW=body*(root.compact?0.12:0.10), cupH=body*(root.compact?0.22:0.24)
-                c.fillRect(cx-body*0.28,cy-body*0.04,cupW,cupH)
-                c.fillRect(cx+body*0.28-cupW,cy-body*0.04,cupW,cupH)
-            } else if (root.kind === 'hdmi') {
-                var dw=body*0.46, dh=body*0.28, dx=cx-dw/2, dy=cy-body*0.22
-                c.strokeRect(dx,dy,dw,dh)
-                c.beginPath();c.moveTo(cx-body*0.06,dy+dh);c.lineTo(cx+body*0.06,dy+dh);c.lineTo(cx+body*0.10,dy+dh+body*0.08);c.lineTo(cx-body*0.10,dy+dh+body*0.08);c.closePath();c.fill()
-            } else if (root.kind === 'none') {
-                c.lineWidth=root.compact?1.2:2.5;c.setLineDash([body*0.08,body*0.08])
-                c.beginPath();c.arc(cx,cy-body*0.08,body*0.22,0,Math.PI*2);c.stroke();c.setLineDash([])
-            } else {
-                // Speaker cone, with extra wireless arcs on a Bluetooth sink.
-                var mx=cx-body*0.20, my=cy-body*(root.compact?0.22:0.26)
-                var mw=body*0.14, mh=body*(root.compact?0.18:0.20)
-                c.fillRect(mx,my,mw,mh)
-                c.beginPath()
-                c.moveTo(mx+mw,my)
-                c.lineTo(cx+body*0.16,cy-body*(root.compact?0.32:0.36))
-                c.lineTo(cx+body*0.16,cy-body*(root.compact?0.06:0.06))
-                c.lineTo(mx+mw,my+mh)
-                c.closePath();c.fill()
-                var arcs=root.kind==='bluetooth'?4:3
+                c.strokeStyle=root.tint; c.fillStyle=root.tint; c.lineWidth=root.compact?1.8:3.2; c.lineCap='round'
+                c.shadowColor=root.tint; c.shadowBlur=root.compact?5:12
+                c.beginPath(); c.arc(cx, cy-s*0.06, s*0.34, Math.PI*1.12, Math.PI*1.88); c.stroke()
+                var cupW=s*(root.compact?0.16:0.14), cupH=s*(root.compact?0.34:0.32)
+                c.fillRect(cx-s*0.38, cy-s*0.02, cupW, cupH)
+                c.fillRect(cx+s*0.38-cupW, cy-s*0.02, cupW, cupH)
+                c.shadowBlur=0
+                var arcs=3
                 for(var a=1;a<=arcs;a++){
-                    var lit=live*arcs>=a-0.5, pulse=(a===Math.min(arcs,Math.max(1,Math.ceil(live*arcs))))?0.65+0.35*Math.sin(t*2):1
-                    c.beginPath();c.strokeStyle=Qt.alpha(root.tint,lit?0.9*pulse:0.16);c.lineWidth=(root.compact?1.1:2.4)*(lit?1:0.7)
-                    c.arc(cx+body*0.16,cy-body*0.16,body*0.10*a,-0.78,0.78);c.stroke()
+                    var lit=live*arcs>=a-0.35, pulse=(lit && a===Math.min(arcs,Math.max(1,Math.ceil(live*arcs))))?0.65+0.35*Math.sin(t*2):1
+                    c.beginPath(); c.strokeStyle=Qt.alpha(root.tint,lit?0.9*pulse:0.16); c.lineWidth=(root.compact?1.2:2.2)*(lit?1:0.7); c.lineCap='round'
+                    c.arc(cx, cy+s*0.08, s*0.18*a, 0.15, Math.PI-0.15); c.stroke()
+                }
+            } else if (root.kind === 'hdmi') {
+                var dw=s*0.46, dh=s*0.30, dx=cx-dw/2, dy=cy-s*0.28
+                c.strokeStyle=root.tint; c.fillStyle=root.tint; c.lineWidth=root.compact?1.4:2.4
+                c.shadowColor=root.tint; c.shadowBlur=root.compact?5:12
+                c.strokeRect(dx,dy,dw,dh)
+                c.beginPath(); c.moveTo(cx-s*0.07,dy+dh); c.lineTo(cx+s*0.07,dy+dh); c.lineTo(cx+s*0.12,dy+dh+s*0.10); c.lineTo(cx-s*0.12,dy+dh+s*0.10); c.closePath(); c.fill()
+                c.shadowBlur=0
+                var bars=root.compact?4:7, barW=s/(bars*3.2), base=cy+s*0.42
+                for(var i=0;i<bars;i++){
+                    var envelope=Math.sin(Math.PI*(i+1)/(bars+1))
+                    var wobble=root.animate?0.62+0.38*Math.abs(Math.sin(t*(1.4+act)+i*0.9)):1
+                    var bh=s*0.28*live*envelope*wobble*(0.55+0.45*act)
+                    var bx=cx-s*0.28+s*0.56*(i+0.5)/bars
+                    c.fillStyle=Qt.alpha(root.tint,0.35+0.55*live)
+                    c.fillRect(bx-barW/2,base-bh,barW,Math.max(root.compact?1.5:2.5,bh))
+                }
+            } else if (root.kind === 'none') {
+                c.strokeStyle=Qt.alpha(root.tint,0.75); c.lineWidth=root.compact?1.4:2.6; c.setLineDash([s*0.08,s*0.08])
+                c.beginPath(); c.arc(cx,cy,s*0.28,0,Math.PI*2); c.stroke(); c.setLineDash([])
+            } else {
+                var ox=cx-(root.compact?s*0.08:s*0.12), oy=cy
+                var magW=s*0.18, magH=s*0.30, magX=ox-s*0.48, magY=oy-magH/2
+                c.fillStyle=root.tint; c.shadowColor=root.tint; c.shadowBlur=root.muted?0:(root.compact?6:14)
+                c.beginPath()
+                c.moveTo(magX, magY+magH*0.18)
+                c.quadraticCurveTo(magX-s*0.04, magY+magH*0.18, magX-s*0.04, magY+magH*0.32)
+                c.lineTo(magX-s*0.04, magY+magH*0.68)
+                c.quadraticCurveTo(magX-s*0.04, magY+magH*0.82, magX, magY+magH*0.82)
+                c.lineTo(magX+magW, magY+magH*0.82)
+                c.lineTo(ox, oy+s*0.42)
+                c.quadraticCurveTo(ox+s*0.10, oy+s*0.44, ox+s*0.10, oy+s*0.30)
+                c.lineTo(ox+s*0.10, oy-s*0.30)
+                c.quadraticCurveTo(ox+s*0.10, oy-s*0.44, ox, oy-s*0.42)
+                c.lineTo(magX+magW, magY+magH*0.18)
+                c.closePath()
+                c.fill()
+                c.shadowBlur=0
+                var extra=root.kind==='bluetooth'?4:3
+                for(var a=1;a<=extra;a++){
+                    var lit=live*extra>=a-0.35, pulse=(lit && a===Math.min(extra,Math.max(1,Math.ceil(live*extra))))?0.65+0.35*Math.sin(t*2):1
+                    c.beginPath(); c.strokeStyle=Qt.alpha(root.tint,lit?0.95*pulse:0.16); c.lineWidth=(root.compact?1.5:2.8)*(lit?1:0.7); c.lineCap='round'
+                    c.arc(ox+s*0.08, oy, s*0.20*a, -0.88, 0.88); c.stroke()
+                }
+            }
+            if (!root.compact && root.kind !== 'headphones' && root.kind !== 'none') {
+                var bars=9, barW=s/22, base=cy+s*0.48, left=cx-s*0.42
+                for(var i=0;i<bars;i++){
+                    var envelope=Math.sin(Math.PI*(i+1)/(bars+1))
+                    var wobble=root.animate?0.58+0.42*Math.abs(Math.sin(t*(1.5+act)+i*0.85)):1
+                    var bh=s*0.22*live*envelope*wobble*(0.5+0.5*act)
+                    var bx=left+s*0.84*(i+0.5)/bars
+                    c.fillStyle=Qt.alpha(root.tint,0.30+0.60*live)
+                    c.fillRect(bx-barW/2,base-bh,barW,Math.max(2,bh))
                 }
             }
             if (root.muted || root.kind === 'none') {
-                c.strokeStyle=Qt.alpha(root.tint,0.9);c.lineWidth=root.compact?1.4:2.6;c.lineCap='round'
-                c.beginPath();c.moveTo(x+body*0.18,y+body*0.18);c.lineTo(x+body*0.82,y+body*0.82);c.stroke()
-            }
-            c.restore()
-            c.strokeStyle=root.tint;c.lineWidth=root.compact?1:2
-            for(var p=0;p<4;p++) {
-                var q=body*(p+1)/5, len=body*0.17
-                c.beginPath();c.moveTo(x+q,y-len);c.lineTo(x+q,y);c.moveTo(x+q,y+body);c.lineTo(x+q,y+body+len)
-                c.moveTo(x-len,y+q);c.lineTo(x,y+q);c.moveTo(x+body,y+q);c.lineTo(x+body+len,y+q);c.stroke()
-                if(!root.compact && !root.muted && root.kind !== 'none'){
-                    var progress=((root.phase*(1+act*4))+p/4)%1
-                    c.fillStyle=Qt.alpha(root.tint,1-progress*0.5)
-                    c.beginPath();c.arc(x+q,y-len-body*0.3+progress*body*0.3,1.7,0,Math.PI*2);c.fill()
-                    c.beginPath();c.arc(x+body+len+progress*body*0.3,y+q,1.7,0,Math.PI*2);c.fill()
-                }
+                c.strokeStyle=Qt.alpha(root.tint,0.95); c.lineWidth=root.compact?2:3.2; c.lineCap='round'
+                c.beginPath(); c.moveTo(cx-s*0.32, cy-s*0.32); c.lineTo(cx+s*0.32, cy+s*0.32); c.stroke()
             }
         }
     }
